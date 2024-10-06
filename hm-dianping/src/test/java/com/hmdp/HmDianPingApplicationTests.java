@@ -9,6 +9,7 @@ import com.hmdp.utils.RedisIdWorker;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.geo.Point;
 import org.springframework.data.redis.connection.RedisGeoCommands;
@@ -90,4 +91,14 @@ public class HmDianPingApplicationTests {
         }
 
     }
+
+
+    @Resource
+    RabbitTemplate rabbitTemplate;
+    @Test
+    public void testSendMessage(){
+        rabbitTemplate.convertAndSend("hmdianping.direct","direct.seckill","测试发送消息");
+    }
+
+
 }

@@ -22,8 +22,9 @@ spring:
   rabbitmq:
     host: 127.0.0.1
     port: 5672
-    username: admin
-    password: 123456
+    virtual-host: /hmdianping # 虚拟主机
+    username: hmdianping # 用户名
+    password: 123456 # 密码
     listener:
       simple:
         concurrency: 1

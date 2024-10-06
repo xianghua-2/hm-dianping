@@ -21,6 +21,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.util.Collections;
 import java.util.concurrent.*;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 /**
  * <p>
@@ -60,7 +61,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private static final ExecutorService SECKILL_ORDER_EXECUTOR = Executors.newSingleThreadExecutor();
 
 
-    //在类初始化之后执行，因为当这个类初始化好了之后，随时都是有可能要执行的
+    /*//在类初始化之后执行，因为当这个类初始化好了之后，随时都是有可能要执行的
     @PostConstruct
     private void init() {
         SECKILL_ORDER_EXECUTOR.submit(new VoucherOrderHandler());
@@ -81,33 +82,48 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 }
             }
         }
+    }*/
+
+    @Transactional
+    public void handleVoucherOrder(VoucherOrder voucherOrder) {
+        //1.所有信息从当前消息实体中拿
+        Long voucherId = voucherOrder.getVoucherId();
+        //2.扣减库存
+        boolean success = seckillVoucherService.update().setSql("stock=stock-1")
+                .eq("voucher_id", voucherId)
+                //======判断当前库存是否大于0就可以决定是否能抢池子中的券了
+                .gt("stock", 0)
+                .update();
+        //3.创建订单
+        if(success) save(voucherOrder);
     }
 
-    private void handleVoucherOrder(VoucherOrder voucherOrder) {
-        //1.获取用户
-        Long userId = voucherOrder.getUserId();
-        // 2.创建锁对象
-        RLock redisLock = redissonClient.getLock("lock:order:" + userId);
-        // 3.尝试获取锁
-        boolean isLock = redisLock.tryLock();
-
-        // 4.判断是否获得锁成功
-        if (!isLock) {
-            // 获取锁失败，直接返回失败或者重试
-            log.error("不允许重复下单！");
-            return;
-        }
-        try {
-            //注意：由于是spring的事务是放在threadLocal中，此时的是多线程，事务会失效
-            proxy.createVoucherOrder(voucherOrder);
-        } finally {
-            // 释放锁
-            redisLock.unlock();
-        }
-    }
-
-    private IVoucherOrderService proxy;
+    @Resource
+    RabbitTemplate rabbitTemplate;
     @Override
+    public Result seckillVoucher(Long voucherId) {
+        //1.执行lua脚本，判断当前用户的购买资格
+        Long userId = UserHolder.getUser().getId();
+        Long result = stringRedisTemplate.execute(
+                SECKILL_SCRIPT,
+                Collections.emptyList(),
+                voucherId.toString(), userId.toString());
+        if (result != 0) {
+            //2.不为0说明没有购买资格
+            return Result.fail(result==1?"库存不足":"不能重复下单");
+        }
+        //3.走到这一步说明有购买资格，将订单信息存到消息队列
+        VoucherOrder voucherOrder = new VoucherOrder();
+        long orderId = redisIdWorker.nextId("order");
+        voucherOrder.setId(orderId);
+        voucherOrder.setUserId(UserHolder.getUser().getId());
+        voucherOrder.setVoucherId(voucherId);
+        //存入消息队列等待异步消费
+        rabbitTemplate.convertAndSend("hmdianping.direct","direct.seckill",voucherOrder);
+        return Result.ok(orderId);
+    }
+
+/*    @Override
     public Result seckillVoucher(Long voucherId) {
         //获取用户
         Long userId = UserHolder.getUser().getId();
@@ -140,7 +156,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
         //3.返回订单id
         return Result.ok(orderId);
-    }
+    }*/
 /*    @Override
     public Result seckillVoucher(Long voucherId) {
         //1. 查询优惠券
