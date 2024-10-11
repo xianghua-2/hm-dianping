@@ -78,10 +78,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // 3.从redis获取验证码并校验
         String cacheCode = stringRedisTemplate.opsForValue().get(LOGIN_CODE_KEY + phone);
         String code = loginForm.getCode();
+
+        // @TODO 先不校验验证码
         if(cacheCode == null || !cacheCode.equals(code)){
             //3.不一致，报错
             return Result.fail("验证码错误");
         }
+        //注释掉以上部分
+
+
         //一致，根据手机号查询用户
         User user = query().eq("phone", phone).one();
 

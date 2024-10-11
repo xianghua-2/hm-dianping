@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.Shop;
 import com.hmdp.mapper.ShopMapper;
@@ -13,6 +14,10 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.CacheClient;
 import com.hmdp.utils.RedisData;
 import com.hmdp.utils.SystemConstants;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.data.geo.Distance;
 import org.springframework.data.geo.GeoResult;
 import org.springframework.data.geo.GeoResults;
@@ -40,17 +45,31 @@ import static com.hmdp.utils.RedisConstants.*;
  * @since 2021-12-22
  */
 @Service
+@Slf4j
 public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IShopService {
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
     @Resource
     private CacheClient cacheClient;
+    @Resource
+    private Cache<String,Object> caffeineCache;
 
+//    @Cacheable(value = "shop",key = "#id")/
     public Result queryById(Long id){
+        //1.从Caffeine中查询数据
+        Object o = caffeineCache.getIfPresent(CACHE_SHOP_KEY + id);
+        if(Objects.nonNull(o)){
+            log.info("从Caffeine中查询到数据...");
+            return Result.ok( o);
+        }
+
         //缓存穿透
         Shop shop = cacheClient.queryWithPassThrough(CACHE_SHOP_KEY,id,Shop.class,this::getById,CACHE_SHOP_TTL,TimeUnit.MINUTES);
-
+        if(shop != null){
+            log.info("从Redis中查到数据");
+            caffeineCache.put(CACHE_SHOP_KEY+id,shop);
+        }
 
         //互斥锁解决缓存击穿
 //        Shop shop = cacheClient.queryWithMutex(CACHE_SHOP_KEY,id,Shop.class,this::getById,CACHE_SHOP_TTL,TimeUnit.MINUTES)
@@ -62,6 +81,7 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         if(shop == null){
             return Result.fail("店铺不存在！");
         }
+
         //7.返回数据
         return Result.ok(shop);
     }
