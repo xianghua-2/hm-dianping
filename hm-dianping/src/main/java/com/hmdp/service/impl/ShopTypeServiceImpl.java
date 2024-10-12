@@ -41,6 +41,7 @@ public class ShopTypeServiceImpl extends ServiceImpl<ShopTypeMapper, ShopType> i
         //2.判断Redis中是否存在数据
         if(StrUtil.isNotBlank(shopTypeJson)){
             List<ShopType> shopTypes = JSONUtil.toList(shopTypeJson,ShopType.class);
+            return Result.ok(shopTypes);
         } //JSONUtil.toList()将查询得到的json转换为ShopType类型的List存储起来。
 
         //2.2 不存在则从数据库中查询

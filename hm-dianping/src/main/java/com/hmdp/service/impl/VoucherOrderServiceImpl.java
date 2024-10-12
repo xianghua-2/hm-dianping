@@ -9,6 +9,7 @@ import com.hmdp.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
+import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
@@ -165,7 +166,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
 
     //======================================2.使用RabbitMQ实现消息队列===================================
-    @Transactional
+/*    @Transactional
     public void handleVoucherOrder(VoucherOrder voucherOrder) {
         //1.所有信息从当前消息实体中拿
         Long voucherId = voucherOrder.getVoucherId();
@@ -177,7 +178,44 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 .update();
         //3.创建订单
         if(success) save(voucherOrder);
+    }*/
+
+    @Transactional
+    public void handleVoucherOrder(VoucherOrder voucherOrder) {
+        //1.所有信息从当前消息实体中拿
+        // 获取用户
+        Long userId = voucherOrder.getUserId();
+        //创建锁对象
+        RLock redisLock = redissonClient.getLock("lock:order:"+userId);
+        //尝试获取锁
+        boolean isLock = redisLock.tryLock();
+
+        //4.判断是否获取锁成功
+        if(!isLock){
+            //获取锁失败，直接返回失败或者重试
+            log.error("不允许重复下单！");
+            return;
+        }
+        try{
+            //获取代理对象(事务)
+            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+            proxy.createVoucherOrder(voucherOrder);
+        }finally {
+            if (redisLock.isHeldByCurrentThread()) {
+                redisLock.unlock();
+            }
+        }
+/*        Long voucherId = voucherOrder.getVoucherId();
+        //2.扣减库存
+        boolean success = seckillVoucherService.update().setSql("stock=stock-1")
+                .eq("voucher_id", voucherId)
+                //======判断当前库存是否大于0就可以决定是否能抢池子中的券了
+                .gt("stock", 0)
+                .update();
+        //3.创建订单
+        if(success) save(voucherOrder);*/
     }
+
 
     @Resource
     RabbitTemplate rabbitTemplate;
@@ -210,20 +248,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     public void createVoucherOrder(VoucherOrder voucherOrder){
         // 5.一人一单逻辑
         // 5.1.用户id
-        Long userId = voucherOrder.getId();
-
-        int count = query().eq("user_id", userId).eq("voucher_id", voucherOrder).count();
-        // 5.2.判断是否存在
-        if (count > 0) {
-            // 用户已经购买过了
-            log.error("用户已经购买过一次！");
-            return ;
-        }
-
         //6.扣减库存
+        Long voucherId = voucherOrder.getVoucherId();
         boolean success = seckillVoucherService.update()
                 .setSql("stock= stock -1") // set stock = stock -1
-                .eq("voucher_id", voucherOrder)
+                .eq("voucher_id", voucherId)
                 .gt("stock",0)// where id = ? and stock > 0
                 .update();
         if (!success) {
