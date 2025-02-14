@@ -2,13 +2,22 @@ package com.hmdp;
 
 import cn.hutool.core.collection.AvgPartition;
 import com.hmdp.entity.Shop;
+import com.hmdp.entity.VoucherOrder;
 import com.hmdp.service.impl.ShopServiceImpl;
 import com.hmdp.utils.CacheClient;
 import com.hmdp.utils.RedisIdWorker;
+import com.hmdp.service.IVoucherOrderService;
 
 
+import com.rabbitmq.client.Channel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.springframework.amqp.core.ExchangeTypes;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.rabbit.annotation.Exchange;
+import org.springframework.amqp.rabbit.annotation.Queue;
+import org.springframework.amqp.rabbit.annotation.QueueBinding;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.geo.Point;
@@ -16,7 +25,10 @@ import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.junit4.SpringRunner;
 
+
+
 import javax.annotation.Resource;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -99,6 +111,8 @@ public class HmDianPingApplicationTests {
     public void testSendMessage(){
         rabbitTemplate.convertAndSend("hmdianping.direct","direct.seckill","测试发送消息");
     }
+
+
 
 
 }

@@ -2,6 +2,7 @@ package com.hmdp.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import com.hmdp.dto.Result;
+import com.hmdp.entity.SeckillVoucher;
 import com.hmdp.entity.VoucherOrder;
 import com.hmdp.mapper.VoucherOrderMapper;
 import com.hmdp.service.ISeckillVoucherService;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -180,6 +182,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if(success) save(voucherOrder);
     }*/
 
+    // @TODO 注释掉以下部分，以下部分为用RabbitMQ实现的异步秒杀
     @Transactional
     public void handleVoucherOrder(VoucherOrder voucherOrder) {
         //1.所有信息从当前消息实体中拿
@@ -265,6 +268,74 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         save(voucherOrder);
 
     }
+
+
+
+
+
+/*    // @TODO 原先秒杀接口，用来测试接口耗时
+    @Override
+    public Result seckillVoucher(Long voucherId) {
+        // 1.查询优惠券
+        SeckillVoucher voucher = seckillVoucherService.getById(voucherId);
+        // 2.判断秒杀是否开始
+        if (voucher.getBeginTime().isAfter(LocalDateTime.now())) {
+            // 尚未开始
+            return Result.fail("秒杀尚未开始！");
+        }
+        // 3.判断秒杀是否已经结束
+        if (voucher.getEndTime().isBefore(LocalDateTime.now())) {
+            // 尚未开始
+            return Result.fail("秒杀已经结束！");
+        }
+        // 4.判断库存是否充足
+        if (voucher.getStock() < 1) {
+            // 库存不足
+            return Result.fail("库存不足！");
+        }
+        // 5.一人一单逻辑
+        // 5.1.用户id
+        Long userId = UserHolder.getUser().getId();
+        int count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
+        // 5.2.判断是否存在
+        if (count > 0) {
+            // 用户已经购买过了
+            return Result.fail("用户已经购买过一次！");
+        }
+
+        //6，扣减库存
+        boolean success = seckillVoucherService.update()
+                .setSql("stock= stock -1")
+                .eq("voucher_id", voucherId).update();
+        if (!success) {
+            //扣减库存
+            return Result.fail("库存不足！");
+        }
+        //7.创建订单
+        VoucherOrder voucherOrder = new VoucherOrder();
+        // 7.1.订单id
+        long orderId = redisIdWorker.nextId("order");
+        voucherOrder.setId(orderId);
+
+        voucherOrder.setUserId(userId);
+        // 7.3.代金券id
+        voucherOrder.setVoucherId(voucherId);
+        save(voucherOrder);
+
+        return Result.ok(orderId);
+
+    }
+
+    @Override
+    public void createVoucherOrder(VoucherOrder voucherOrder) {
+
+    }
+
+    @Override
+    public void handleVoucherOrder(VoucherOrder voucherOrder) {
+
+    }*/
+
 
 }
 

@@ -1,7 +1,9 @@
 package com.hmdp.config;
 
+import com.hmdp.properties.JwtProperties;
 import com.hmdp.utils.LoginInterceptor;
 import com.hmdp.utils.RefreshTokenInterceptor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -15,6 +17,8 @@ public class MvcConfig implements WebMvcConfigurer { //WebMvcConfigurer接口允
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+    @Autowired
+    private JwtProperties jwtProperties;
 
 
     public void addInterceptors(InterceptorRegistry registry) {
@@ -29,7 +33,9 @@ public class MvcConfig implements WebMvcConfigurer { //WebMvcConfigurer接口允
                         "/user/code",
                         "/user/login"
                 ).order(1);
+
+        // order越小，优先级越高，所以是先会通过token刷新拦截器
         // token刷新的拦截器
-        registry.addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate)).addPathPatterns("/**").order(0); //拦截所有请求
+        registry.addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate,jwtProperties)).addPathPatterns("/**").order(0); //拦截所有请求
     }
 }
