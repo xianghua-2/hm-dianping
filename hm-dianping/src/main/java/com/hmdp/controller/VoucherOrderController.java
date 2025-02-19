@@ -1,6 +1,7 @@
 package com.hmdp.controller;
 
 
+import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.hmdp.dto.Result;
 import com.hmdp.service.IVoucherOrderService;
 import com.hmdp.service.IVoucherService;
@@ -36,6 +37,7 @@ public class VoucherOrderController {
 //    }
 
     @PostMapping("seckill/{id}")
+    @SentinelResource(value = "seckill",blockHandler = "handleBlock",fallback = "handleFallback")
     public Result seckillVoucher(@PathVariable("id") Long voucherId) {
         long startTime = System.currentTimeMillis();
         Result  result = voucherOrderService.seckillVoucher(voucherId);
@@ -45,4 +47,16 @@ public class VoucherOrderController {
 //        return voucherOrderService.seckillVoucher(voucherId);
         return result;
     }
+
+    public Result handleBlock(Long voucherId,Throwable throwable){
+        log.info("限流了");
+        return Result.fail("系统繁忙,请稍后重试");
+    }
+
+    public Result handleFallback(Long voucherId,Throwable throwable){
+        log.info("业务异常");
+        return Result.fail("秒杀服务暂不可用");
+    }
+
+
 }

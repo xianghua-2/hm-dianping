@@ -4,6 +4,7 @@ package com.hmdp.controller;
 import com.hmdp.dto.LoginFormDTO;
 import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
+import com.hmdp.entity.PageResult;
 import com.hmdp.entity.User;
 import com.hmdp.entity.UserInfo;
 import com.hmdp.service.IUserInfoService;
@@ -95,6 +96,13 @@ public class UserController {
         // 返回
         return Result.ok(info);
     }
+
+    @GetMapping("/pagelist")
+    public Result list(@RequestParam("pageNo") int pageNo, @RequestParam("batchSize") int batchSize){
+
+        return Result.ok(userService.listByPage(pageNo,batchSize));
+    }
+
 
     @GetMapping("/{id}")
     public Result queryById(@PathVariable("id") Long userId) {

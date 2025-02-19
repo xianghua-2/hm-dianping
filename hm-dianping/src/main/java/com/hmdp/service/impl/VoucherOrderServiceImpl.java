@@ -40,6 +40,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
  * @since 2021-12-22
  */
 @Service
+
 public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucherOrderService {
 
     @Resource

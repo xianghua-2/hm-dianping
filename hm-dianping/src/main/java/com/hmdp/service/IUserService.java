@@ -3,6 +3,7 @@ package com.hmdp.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hmdp.dto.LoginFormDTO;
 import com.hmdp.dto.Result;
+import com.hmdp.entity.PageResult;
 import com.hmdp.entity.User;
 
 import javax.servlet.http.HttpSession;
@@ -25,4 +26,6 @@ public interface IUserService extends IService<User> {
     Result sign();
 
     Result signCount();
+
+    PageResult listByPage(int pageNo, int batchSize);
 }

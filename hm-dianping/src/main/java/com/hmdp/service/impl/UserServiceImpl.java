@@ -4,10 +4,13 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.bean.copier.CopyOptions;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.hmdp.constant.JwtClaimsConstant;
 import com.hmdp.dto.LoginFormDTO;
 import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
+import com.hmdp.entity.PageResult;
 import com.hmdp.entity.User;
 import com.hmdp.mapper.UserMapper;
 import com.hmdp.properties.JwtProperties;
@@ -29,7 +32,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import cn.hutool.core.lang.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.hmdp.utils.RedisConstants.*;
@@ -50,6 +52,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     private StringRedisTemplate stringRedisTemplate;
     @Autowired
     private JwtProperties jwtProperties;
+    @Autowired
+    private UserMapper userMapper;
 
     @Override
     public Result sendCode(String phone, HttpSession session) {
@@ -240,6 +244,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             num >>>= 1;
         }
         return Result.ok(count);
+    }
+
+    @Override
+    public PageResult listByPage(int pageNo, int pageSize) {
+        PageHelper.startPage(pageNo,pageSize);
+//        List<User> users = userMapper.selectAll();
+
+        PageInfo<User> pageInfo = new PageInfo<>(userMapper.selectAll());
+        long total = pageInfo.getTotal();
+        List<User> users = pageInfo.getList();
+
+        return new PageResult(total,users);
     }
 
     private User createUserWithPhone(String phone) {

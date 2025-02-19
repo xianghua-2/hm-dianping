@@ -21,6 +21,8 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 
 import java.util.List;
+import com.hmdp.entity.PageResult;
+
 @SpringBootTest
 public class UserLoginBatch {
 
@@ -37,47 +39,59 @@ public class UserLoginBatch {
 
             BufferedWriter writer = new BufferedWriter(new FileWriter(tokenFilePath));
 
-            // 从数据库中获取用户手机号
-            List<User> users = userService.list();
+            int batchSize = 1000;// 每次处理1k个用户
+            int pageNo = 1;
 
-            for(User user : users) {
-                String phoneNumber = user.getPhone();
+            while(true){
+                // 从数据库中获取用户手机号
+//                List<User> users = userService.list();
+                PageResult pageResult = userService.listByPage(pageNo, batchSize);
+                pageNo++;
+                List<User> users = pageResult.getRecords();
+                if(users.size() == 0) {
+                    break;
+                }
+                for(User user : users) {
+                    String phoneNumber = user.getPhone();
 
-                // 构建登录请求
-                HttpPost httpPost = new HttpPost(loginUrl);
-                //（1.如果作为请求参数传递）
-                //List<NameValuePair> params = new ArrayList<>();
-                //params.add(new BasicNameValuePair("phone", phoneNumber));
-                // 如果登录需要提供密码，也可以添加密码参数
-                // params.add(new BasicNameValuePair("password", "user_password"));
-                //httpPost.setEntity(new UrlEncodedFormEntity(params));
-                // (2.如果作为请求体传递)构建请求体JSON对象
-                JSONObject jsonRequest = new JSONObject();
-                jsonRequest.put("phone", phoneNumber);
-                StringEntity requestEntity = new StringEntity(
-                        jsonRequest.toString(),
-                        ContentType.APPLICATION_JSON);
-                httpPost.setEntity(requestEntity);
+                    // 构建登录请求
+                    HttpPost httpPost = new HttpPost(loginUrl);
+                    //（1.如果作为请求参数传递）
+                    //List<NameValuePair> params = new ArrayList<>();
+                    //params.add(new BasicNameValuePair("phone", phoneNumber));
+                    // 如果登录需要提供密码，也可以添加密码参数
+                    // params.add(new BasicNameValuePair("password", "user_password"));
+                    //httpPost.setEntity(new UrlEncodedFormEntity(params));
+                    // (2.如果作为请求体传递)构建请求体JSON对象
+                    JSONObject jsonRequest = new JSONObject();
+                    jsonRequest.put("phone", phoneNumber);
+                    StringEntity requestEntity = new StringEntity(
+                            jsonRequest.toString(),
+                            ContentType.APPLICATION_JSON);
+                    httpPost.setEntity(requestEntity);
 
-                // 发送登录请求
-                HttpResponse response = httpClient.execute(httpPost);
+                    // 发送登录请求
+                    HttpResponse response = httpClient.execute(httpPost);
 
-                // 处理登录响应，获取token
-                if (response.getStatusLine().getStatusCode() == 200) {
-                    HttpEntity entity = response.getEntity();
-                    String responseString = EntityUtils.toString(entity);
-                    System.out.println(responseString);
-                    // 解析响应，获取token，这里假设响应是JSON格式的
-                    // 根据实际情况使用合适的JSON库进行解析
-                    String token = parseTokenFromJson(responseString);
-                    System.out.println("手机号 " + phoneNumber + " 登录成功，Token: " + token);
-                    // 将token写入txt文件
-                    writer.write(token);
-                    writer.newLine();
-                } else {
-                    System.out.println("手机号 " + phoneNumber + " 登录失败");
+                    // 处理登录响应，获取token
+                    if (response.getStatusLine().getStatusCode() == 200) {
+                        HttpEntity entity = response.getEntity();
+                        String responseString = EntityUtils.toString(entity);
+                        System.out.println(responseString);
+                        // 解析响应，获取token，这里假设响应是JSON格式的
+                        // 根据实际情况使用合适的JSON库进行解析
+                        String token = parseTokenFromJson(responseString);
+                        System.out.println("手机号 " + phoneNumber + " 登录成功，Token: " + token);
+                        // 将token写入txt文件
+                        writer.write(token);
+                        writer.newLine();
+                    } else {
+                        System.out.println("手机号 " + phoneNumber + " 登录失败");
+                    }
                 }
             }
+
+
             writer.close();
         } catch (Exception e) {
             e.printStackTrace();

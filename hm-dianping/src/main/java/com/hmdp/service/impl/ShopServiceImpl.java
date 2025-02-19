@@ -227,14 +227,17 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 
     @Override
     public Result update(Shop shop) {
+
         Long id = shop.getId();
         if(id == null){
             return Result.fail("店铺id不能为空");
         }
         //1.更新数据库
         updateById(shop);
+
+        // @TODO 现在不再需要删除缓存了，由canal监听数据库的变化，然后更新缓存
         //2.删除缓存
-        stringRedisTemplate.delete(CACHE_SHOP_KEY + id);
+//        stringRedisTemplate.delete(CACHE_SHOP_KEY + id);
         return Result.ok();
     }
 
