@@ -1,8 +1,9 @@
-package com.hmdp.utils;
+package com.hmdp.interceptor;
 
 import com.hmdp.constant.JwtClaimsConstant;
+import com.hmdp.utils.JwtUtil;
+import com.hmdp.utils.UserHolder;
 import io.jsonwebtoken.Claims;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -60,6 +61,10 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
 //        String token = request.getHeader("authorization");
         String token = request.getHeader(jwtProperties.getUserTokenName());
         if (StrUtil.isBlank(token)) {
+            return true;
+        }
+        // 判断jwt是否过期
+        if(JwtUtil.isExpiration(token,jwtProperties.getUserSecretKey())){
             return true;
         }
         Claims claims = JwtUtil.parseJWT(jwtProperties.getUserSecretKey(),token);

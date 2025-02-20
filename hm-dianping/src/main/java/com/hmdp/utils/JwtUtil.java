@@ -1,9 +1,6 @@
 package com.hmdp.utils;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtBuilder;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 
 import javax.crypto.SecretKey;
@@ -52,13 +49,29 @@ public class JwtUtil {
      * @return
      */
     public static Claims parseJWT(String secretKey, String token) {
-        // 得到DefaultJwtParser
-        Claims claims = Jwts.parser()
-                // 设置签名的秘钥
-                .setSigningKey(secretKey.getBytes(StandardCharsets.UTF_8))
-                // 设置需要解析的jwt
-                .parseClaimsJws(token).getBody();
+        Claims claims;
+        try{
+            // 得到DefaultJwtParser
+             claims = Jwts.parser()
+                    // 设置签名的秘钥
+                    .setSigningKey(secretKey.getBytes(StandardCharsets.UTF_8))
+                    // 设置需要解析的jwt
+                    .parseClaimsJws(token).getBody();
+        }catch (ExpiredJwtException e){
+            // token已过期
+            claims = e.getClaims();
+        }
+
         return claims;
     }
 
+    /**
+     * 判断token是否过期
+     * @param token
+     * @param userSecretKey
+     * @return
+     */
+    public static boolean isExpiration(String token, String userSecretKey) {
+        return parseJWT(userSecretKey, token).getExpiration().before(new Date());
+    }
 }

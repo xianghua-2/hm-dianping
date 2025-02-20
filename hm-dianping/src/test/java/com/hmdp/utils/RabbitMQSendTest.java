@@ -25,8 +25,6 @@ public class RabbitMQSendTest {
 
 
 
-
-    //TODO:测试RabbitMQ发送消息
     @Test
     public void testSendDirectMessage() {
         // 交换机名称

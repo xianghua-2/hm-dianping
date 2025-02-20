@@ -11,8 +11,10 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
+import org.checkerframework.checker.units.qual.C;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.connection.stream.*;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.util.concurrent.ListenableFutureCallback;
 
 /**
  * <p>
@@ -183,7 +186,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if(success) save(voucherOrder);
     }*/
 
-    // @TODO 注释掉以下部分，以下部分为用RabbitMQ实现的异步秒杀
+    // 以下部分为用RabbitMQ实现的异步秒杀
     @Transactional
     public void handleVoucherOrder(VoucherOrder voucherOrder) {
         //1.所有信息从当前消息实体中拿
@@ -241,7 +244,29 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         voucherOrder.setId(orderId);
         voucherOrder.setUserId(UserHolder.getUser().getId());
         voucherOrder.setVoucherId(voucherId);
-        //存入消息队列等待异步消费
+
+        //4. 存入消息队列等待异步消费
+        // 4.1 创建CorrelationData
+        CorrelationData cd = new CorrelationData();
+        // 4.2 给Future添加ConfirmCallback
+        cd.getFuture().addCallback(new ListenableFutureCallback<CorrelationData.Confirm>(){
+            @Override
+            public void onSuccess(CorrelationData.Confirm confirm) {
+                // 4.3 消息发送成功时的处理逻辑
+                if(confirm.isAck()){
+                    log.debug("消息发送成功，收到ack!");
+                }else{
+                    log.error("消息发送失败，收到nack!"+ confirm.getReason());
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable throwable) {
+                // 4.2.2 消息发送失败时的处理逻辑
+                log.error("消息发送失败，发生异常!"+throwable.getMessage());
+            }
+            });
+
         rabbitTemplate.convertAndSend("hmdianping.direct","direct.seckill",voucherOrder);
         return Result.ok(orderId);
     }
@@ -249,11 +274,16 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
 
     @Transactional
-    public void createVoucherOrder(VoucherOrder voucherOrder){
+    public void createVoucherOrder(VoucherOrder voucherOrder) {
         // 5.一人一单逻辑
         // 5.1.用户id
         //6.扣减库存
         Long voucherId = voucherOrder.getVoucherId();
+        // 先查找是否存在订单，从而确保消费幂等性
+
+        if(seckillVoucherService.getById(voucherId)!=null){
+            return;
+        }
         boolean success = seckillVoucherService.update()
                 .setSql("stock= stock -1") // set stock = stock -1
                 .eq("voucher_id", voucherId)
@@ -274,7 +304,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
 
 
-/*    // @TODO 原先秒杀接口，用来测试接口耗时
+/*    // 原先秒杀接口，用来测试接口耗时
     @Override
     public Result seckillVoucher(Long voucherId) {
         // 1.查询优惠券

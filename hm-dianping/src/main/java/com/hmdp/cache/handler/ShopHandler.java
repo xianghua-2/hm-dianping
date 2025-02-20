@@ -22,6 +22,7 @@ public class ShopHandler implements EntryHandler<Shop>{
     @Resource
     private Cache<String, Object> shopCache;
 
+
     @Override
     public void insert(Shop shop) {
         // 写数据到JVM进程缓存
